@@ -1190,13 +1190,23 @@ func LoadContextsFromAPIConfig(config *api.Config, skipProxySetup bool) ([]Conte
 }
 
 // splitKubeConfigPath splits the kubeconfig path by the delimiter.
+// Empty entries are dropped, the same way kubectl ignores them, so a list
+// with a leading, trailing or doubled delimiter still loads every file.
 func splitKubeConfigPath(path string) []string {
 	delimiter := ":"
 	if runtime.GOOS == "windows" {
 		delimiter = ";"
 	}
 
-	return strings.Split(path, delimiter)
+	var paths []string
+
+	for _, p := range strings.Split(path, delimiter) {
+		if p != "" {
+			paths = append(paths, p)
+		}
+	}
+
+	return paths
 }
 
 func resolveServiceAccountTokenPath(clusterConfig *rest.Config, serviceAccountTokenPath string) string {

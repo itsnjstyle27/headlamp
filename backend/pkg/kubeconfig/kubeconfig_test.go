@@ -1305,6 +1305,26 @@ users:
 	assert.Equal(t, absToken, ctx.AuthInfo.TokenFile)
 }
 
+// An empty entry in the path list, as left by a leading, trailing or doubled
+// separator, should be skipped instead of failing the whole load.
+func TestLoadContextsFromMultipleFilesSkipsEmptyEntries(t *testing.T) {
+	file := "./test_data/kubeconfig1"
+	sep := string(os.PathListSeparator)
+
+	for _, paths := range []string{
+		sep + file,
+		file + sep,
+		file + sep + sep + "./test_data/kubeconfig_metadata",
+	} {
+		t.Run(paths, func(t *testing.T) {
+			contexts, contextErrors, err := kubeconfig.LoadContextsFromMultipleFiles(paths, kubeconfig.KubeConfig)
+			require.NoError(t, err)
+			require.Empty(t, contextErrors)
+			assert.NotEmpty(t, contexts)
+		})
+	}
+}
+
 func TestLoadContextsFromMultipleFilesResolvesRelativeToEachFile(t *testing.T) {
 	t.Parallel()
 
