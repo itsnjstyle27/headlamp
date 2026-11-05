@@ -222,7 +222,7 @@ func createHeadlampConfig(conf *config.Config) *HeadlampConfig {
 		OidcIdpIssuerURL:          conf.OidcIdpIssuerURL,
 		OidcCallbackURL:           conf.OidcCallbackURL,
 		OidcValidatorIdpIssuerURL: conf.OidcValidatorIdpIssuerURL,
-		OidcScopes:                strings.Split(conf.OidcScopes, ","),
+		OidcScopes:                kubeconfig.ParseScopes(conf.OidcScopes),
 		OidcSkipTLSVerify:         conf.OidcSkipTLSVerify,
 		OidcSkipLogout:            conf.OidcSkipLogout,
 		OidcUseAccessToken:        conf.OidcUseAccessToken,

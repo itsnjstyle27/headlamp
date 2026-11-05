@@ -430,7 +430,7 @@ func (c *Context) OidcConfig() (*OidcConfig, error) {
 	return &OidcConfig{
 		ClientID:     c.AuthInfo.AuthProvider.Config["client-id"],
 		ClientSecret: c.AuthInfo.AuthProvider.Config["client-secret"],
-		Scopes:       strings.Split(c.AuthInfo.AuthProvider.Config["scope"], ","),
+		Scopes:       ParseScopes(c.AuthInfo.AuthProvider.Config["scope"]),
 		IdpIssuerURL: c.AuthInfo.AuthProvider.Config["idp-issuer-url"],
 		CACert:       caCert,
 	}, nil
@@ -1347,7 +1347,7 @@ func newInClusterContextFromConfig(
 			ClientID:      oidcClientID,
 			ClientSecret:  oidcClientSecret,
 			IdpIssuerURL:  oidcIssuerURL,
-			Scopes:        strings.Split(oidcScopes, ","),
+			Scopes:        ParseScopes(oidcScopes),
 			SkipTLSVerify: &oidcSkipTLSVerify,
 			CACert:        caCert,
 		}
@@ -1366,6 +1366,22 @@ func newInClusterContextFromConfig(
 // Func type for context filter, if the func return true,
 // the context will be skipped otherwise the context will be used.
 type shouldBeSkippedFunc = func(kubeContext Context) bool
+
+// ParseScopes splits a comma separated list of OIDC scopes. It trims the
+// whitespace around each scope and drops empty entries, so values such as
+// "profile, email" or a list that ends in a newline give clean scope names.
+// The scopes go to the identity provider as they are.
+func ParseScopes(scopes string) []string {
+	parsed := []string{}
+
+	for _, scope := range strings.Split(scopes, ",") {
+		if scope = strings.TrimSpace(scope); scope != "" {
+			parsed = append(parsed, scope)
+		}
+	}
+
+	return parsed
+}
 
 // AllowAllKubeContext will keep all contexts.
 func AllowAllKubeContext(_ Context) bool {

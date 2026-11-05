@@ -352,6 +352,62 @@ users:
 	})
 }
 
+func TestParseScopes(t *testing.T) {
+	tests := []struct {
+		name   string
+		scopes string
+		want   []string
+	}{
+		{name: "comma separated", scopes: "profile,email", want: []string{"profile", "email"}},
+		{name: "spaces after commas", scopes: "profile, email , groups", want: []string{"profile", "email", "groups"}},
+		{name: "trailing newline", scopes: "profile,email\n", want: []string{"profile", "email"}},
+		{name: "empty entries", scopes: ",profile,,email,", want: []string{"profile", "email"}},
+		{name: "empty string", scopes: "", want: []string{}},
+		{name: "only whitespace", scopes: " \n ", want: []string{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, kubeconfig.ParseScopes(tt.scopes))
+		})
+	}
+}
+
+func TestOIDCConfigScopesAreTrimmed(t *testing.T) {
+	tempFile := createTempKubeconfig(t, `apiVersion: v1
+clusters:
+- cluster:
+    server: https://127.0.0.1:6443
+  name: test-cluster
+contexts:
+- context:
+    cluster: test-cluster
+    user: test-user
+  name: test-context
+current-context: test-context
+kind: Config
+users:
+- name: test-user
+  user:
+    auth-provider:
+      config:
+        client-id: "test-client-id"
+        idp-issuer-url: "https://oidc.example.com"
+        scope: "profile, email"
+      name: oidc`)
+
+	defer func() { _ = os.Remove(tempFile) }()
+
+	contexts, contextErrors, err := kubeconfig.LoadContextsFromFile(tempFile, kubeconfig.KubeConfig)
+	require.NoError(t, err)
+	require.Empty(t, contextErrors)
+	require.Len(t, contexts, 1)
+
+	oidcConfig, err := contexts[0].OidcConfig()
+	require.NoError(t, err)
+	assert.Equal(t, []string{"profile", "email"}, oidcConfig.Scopes)
+}
+
 func TestOidcConfigWithNilAuthInfo(t *testing.T) {
 	context := &kubeconfig.Context{AuthInfo: nil}
 
