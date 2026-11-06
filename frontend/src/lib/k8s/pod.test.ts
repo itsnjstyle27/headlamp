@@ -125,6 +125,45 @@ describe('Pod class', () => {
     );
   });
 
+  describe('a failed init container with no reason', () => {
+    // The API server leaves out reason and signal when they are empty, as they are
+    // both omitempty.
+    function makePodWithInitState(terminated: object) {
+      const data = JSON.parse(JSON.stringify(mockPodData));
+      data.spec.initContainers = [{ name: 'init-1' }];
+      data.status.phase = 'Pending';
+      data.status.containerStatuses = [];
+      data.status.initContainerStatuses = [
+        { name: 'init-1', ready: false, restartCount: 0, state: { terminated } },
+      ];
+      return new Pod(data);
+    }
+
+    it('shows the exit code when the signal is left out', () => {
+      expect(makePodWithInitState({ exitCode: 3 }).getDetailedStatus().reason).toBe(
+        'Init:ExitCode:3'
+      );
+    });
+
+    it('shows the exit code when the signal is 0', () => {
+      expect(makePodWithInitState({ exitCode: 3, signal: 0 }).getDetailedStatus().reason).toBe(
+        'Init:ExitCode:3'
+      );
+    });
+
+    it('shows the signal when there is one', () => {
+      expect(makePodWithInitState({ exitCode: 137, signal: 9 }).getDetailedStatus().reason).toBe(
+        'Init:Signal:9'
+      );
+    });
+
+    it('shows the reason when there is one', () => {
+      expect(
+        makePodWithInitState({ exitCode: 1, reason: 'Error' }).getDetailedStatus().reason
+      ).toBe('Init:Error');
+    });
+  });
+
   it('returns ExitCode when a container terminated with empty reason and no signal', () => {
     const data = JSON.parse(JSON.stringify(mockPodData));
     data.status.containerStatuses = [
