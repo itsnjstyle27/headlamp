@@ -442,6 +442,27 @@ func TestWebsocketConnContextKey(t *testing.T) {
 			expectedKey:    "test-cluster",
 			expectedHeader: "v4.channel.k8s.io",
 		},
+		{
+			name:           "No space after the comma",
+			protocols:      "base64url.headlamp.authorization.k8s.io.user123,v4.channel.k8s.io",
+			clusterName:    "test-cluster",
+			expectedKey:    statelessContextKey("test-cluster", "user123"),
+			expectedHeader: "v4.channel.k8s.io",
+		},
+		{
+			name:           "Authorization protocol last, no space after the comma",
+			protocols:      "v4.channel.k8s.io,base64url.headlamp.authorization.k8s.io.user123",
+			clusterName:    "test-cluster",
+			expectedKey:    statelessContextKey("test-cluster", "user123"),
+			expectedHeader: "v4.channel.k8s.io",
+		},
+		{
+			name:           "Extra spaces around the protocols",
+			protocols:      " v5.channel.k8s.io ,  base64url.headlamp.authorization.k8s.io.user123 ,  v4.channel.k8s.io ",
+			clusterName:    "test-cluster",
+			expectedKey:    statelessContextKey("test-cluster", "user123"),
+			expectedHeader: "v5.channel.k8s.io, v4.channel.k8s.io",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -452,6 +473,26 @@ func TestWebsocketConnContextKey(t *testing.T) {
 			key := websocketConnContextKey(req, tc.clusterName)
 			assert.Equal(t, tc.expectedKey, key)
 			assert.Equal(t, tc.expectedHeader, req.Header.Get("Sec-Websocket-Protocol"))
+		})
+	}
+}
+
+func TestWebsocketConnContextKeyDropsEmptyProtocolHeader(t *testing.T) {
+	testCases := map[string]string{
+		"Only the authorization protocol": "base64url.headlamp.authorization.k8s.io.user123",
+		"No protocols":                    "",
+	}
+
+	for name, protocols := range testCases {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/", nil)
+			if protocols != "" {
+				req.Header.Set("Sec-Websocket-Protocol", protocols)
+			}
+
+			websocketConnContextKey(req, "test-cluster")
+
+			assert.NotContains(t, req.Header, "Sec-Websocket-Protocol")
 		})
 	}
 }
