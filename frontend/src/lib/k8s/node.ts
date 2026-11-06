@@ -132,16 +132,25 @@ class Node extends KubeObject<KubeNode> {
   }
 
   /**
-   * Roles derived from the conventional `node-role.kubernetes.io/<role>` labels.
+   * Roles derived from the conventional `node-role.kubernetes.io/<role>` labels
+   * and the value of the older `kubernetes.io/role` label, like the ROLES column
+   * of `kubectl get nodes`.
    *
    * @see {@link https://kubernetes.io/docs/reference/labels-annotations-taints/#node-role-kubernetes-io}
    */
   getRoles(): string[] {
     const labels = this.metadata?.labels ?? {};
     const rolePrefix = 'node-role.kubernetes.io/';
-    return Object.keys(labels)
-      .filter(key => key.startsWith(rolePrefix))
-      .map(key => key.slice(rolePrefix.length));
+    const roles = new Set<string>();
+    for (const [key, value] of Object.entries(labels)) {
+      if (key.startsWith(rolePrefix)) {
+        roles.add(key.slice(rolePrefix.length));
+      } else if (key === 'kubernetes.io/role') {
+        roles.add(value);
+      }
+    }
+    roles.delete('');
+    return [...roles].sort();
   }
 
   /**
